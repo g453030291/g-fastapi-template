@@ -7,7 +7,7 @@ from sqlmodel import Session, text
 from app.core.database import get_db
 from app.models.response import Response
 
-router = APIRouter(prefix="/test", tags=["test"])
+router = APIRouter()
 
 @router.get("/db")
 def test_db_connection(session: Session = Depends(get_db)):
