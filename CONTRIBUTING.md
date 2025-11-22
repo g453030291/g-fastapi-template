@@ -1,39 +1,138 @@
-# 贡献指南与开发规范
+# Contributing & Architecture Guide
 
-欢迎参与开发！为了保持项目架构的整洁和高效，请所有开发者（包括 AI 助手）严格遵守以下规范。
+> **ATTENTION AI ASSISTANTS (Cursor, Copilot, Claude, etc.)**:
+> Before generating any code, you **MUST** read and strictly follow the architecture rules defined below.
+> This project uses a specific **"Sync DB + Async Framework"** hybrid architecture. Do NOT apply generic fully-async FastAPI patterns blindly.
 
-## 🏗️ 核心技术栈
-- **框架**: FastAPI (异步)
-- **数据库**: SQLModel + PyMySQL (同步模式)
-- **定时任务**: APScheduler (BackgroundScheduler)
-- **配置**: Pydantic Settings V2
+---
 
-## 🚨 关键架构原则 (非常重要)
+## 1. Core Tech Stack
 
-### 1. 数据库交互 (同步 vs 异步)
-本项目采用了 **"异步 Web 框架 + 同步数据库"** 的混合模式：
-- **❌ 严禁**: 在数据库操作中使用 `await` (如 `await session.exec(...)`)。
-- **✅ 必须**: Service 层和 Repository 层操作数据库时，使用普通 `def` 函数。
-- **✅ 必须**: FastAPI 路由函数如果依赖数据库，必须使用 `def` 定义 (让 FastAPI 放入线程池运行)。
-    ```python
-    # 正确示例
-    @router.get("/users")
-    def get_users(db: Session = Depends(get_db)): # 注意是 def
-        return db.exec(select(User)).all()
-    ```
+- **Web Framework**: FastAPI (Async)
+- **ORM**: SQLModel (SQLAlchemy Core)
+- **Database Driver**: PyMySQL (**Sync Mode**)
+- **Configuration**: Pydantic Settings V2
+- **Logging**: Loguru (Replaces standard logging)
+- **External Clients**: OpenAI (Dual-mode: Sync/Async)
 
-### 2. 目录职责
-- `app/api/`: **只做** 请求接收、参数校验、响应转换。**禁止** 写复杂业务逻辑。
-- `app/services/`: 承载所有业务逻辑。
-- `app/core/`: 基础设施配置 (Config, Log, DB)。
-- `app/client/`: 第三方 API 客户端 (OpenAI 等) 必须单例封装。
+---
 
-### 3. 代码风格
-- **日志**: 必须使用 `from loguru import logger`，禁止使用 `print`。
-- **工具**: 优先使用 `app/utils/` 下的现成工具 (如 `cache_util`)。
-- **模型**: SQLModel 请务必加上 `table=True`。
+## 2. Critical Architecture Rules
 
-## 🤖 给 AI 助手的指令
-如果你是 Cursor、Copilot 或其他 AI 助手，在生成代码前，请务必：
-1. 检查是否违反了上述“同步数据库”规则。
-2. 检查是否遵循了目录分层结构。
+### 2.1 Database Interaction (Sync Mode)
+This project uses a **synchronous** database driver (PyMySQL).
+
+- **STRICTLY FORBIDDEN**:
+  - NEVER use `await` for database operations (e.g., `await session.exec(...)`).
+  - NEVER define Service layer functions involving DB operations as `async def`.
+
+- **MUST DO**:
+  - **Service Layer**: All functions must be defined with **`def`** (Synchronous).
+  - **API Routes**: If an endpoint directly depends on the database `session`, define it with **`def`**. FastAPI will automatically run it in a thread pool to avoid blocking the Event Loop.
+  - **Dependency Injection**: Use `def get_db()` which yields a sync session.
+
+### 2.2 External API Calls (OpenAI/HTTP)
+To balance high concurrency (API layer) and compatibility (Task layer), external clients support dual modes.
+
+- **Scenario A: Inside API Routes (Routers)**
+  - **Rule**: Use `async def` for the route.
+  - **Action**: Call `await openai_client.chat_async(...)`.
+  - **Reason**: Non-blocking I/O to release the Event Loop.
+
+- **Scenario B: Inside Services or Scheduled Tasks**
+  - **Rule**: The function itself is `def` (Sync).
+  - **Action**: Call `openai_client.chat_sync(...)`.
+  - **Reason**: Compatibility with the sync database context and background threads.
+
+---
+
+## 3. Directory Structure & Responsibilities
+
+Follow this structure strictly. Do not place business logic in the API layer.
+
+```
+app/
+|-- api/                  # Controllers / Routes
+|   |-- ...               # Request parsing, Validation, Calling Services
+|                         # NO complex business logic here.
+|
+|-- services/             # Business Logic Layer
+|   |-- ...               # Pure synchronous Python code (def).
+|                         # Handles atomic DB operations and complex logic.
+|
+|-- core/                 # Infrastructure
+|   |-- config.py         # Pydantic Settings
+|   |-- database.py       # DB Engine, Session, get_db (Sync)
+|   |-- logger.py         # Loguru configuration
+|
+|-- models/               # Data Models
+|   |-- response.py       # Uniform Response Wrapper (Response class)
+|   |-- xxx.py            # SQLModel DB Tables (table=True) + Pydantic Schemas
+|
+|-- client/               # External Clients
+|   |-- openai_client.py  # Singleton, Dual-mode (Sync/Async) wrapper
+|
+|-- utils/                # Utilities
+    |-- cache_util.py     # Thread-safe caching tools
+```
+
+---
+
+## 4. Coding Standards
+
+### 4.1 Unified Response Format
+
+All API endpoints **MUST** return data using the unified `Response` class.
+
+**Import Path**:
+
+```python
+from app.models.response import Response
+```
+
+**Usage Patterns**:
+
+```python
+# Success Scenario
+return Response.success(data=val)
+
+# Error Scenario
+return Response.fail(msg="Resource not found", code=404)
+```
+
+**Example in Router**:
+
+```python
+@router.get("/db")
+def test_db_connection(session: Session = Depends(get_db)):
+    result = session.exec(text("SELECT 1")).first()
+    val = result[0] if result else 0
+    return Response.success(data=val)
+```
+
+### 4.2 Logging
+
+- **FORBIDDEN**: `print(...)` or `logging.info(...)`.
+- **REQUIRED**: Use `loguru`.
+
+```python
+from loguru import logger
+
+logger.info("Processing started")
+logger.error(f"Error occurred: {e}")
+```
+
+### 4.3 Database Management
+
+- **No Migrations**: Do not generate Alembic migration files.
+- **Schema Management**: Database tables are managed manually or via `scripts/init_db.py` (using `SQLModel.metadata.create_all`).
+
+### 4.4 Type Hinting
+
+- All functions must use Python type hints.
+- Use `str | None` instead of `Optional[str]` (Python 3.10+ style).
+
+```python
+def get_user(user_id: int) -> User | None:
+    ...
+```

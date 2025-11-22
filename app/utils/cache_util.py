@@ -1,27 +1,24 @@
 import threading
+import inspect
 from functools import wraps
 from typing import Any
 
 from cachetools import TTLCache
 
-# 1. 全局缓存池 (底层就是一个增强版 Dict)
-# maxsize=1000: 最多存1000个key
-# ttl=600: 存活600秒
+# 全局缓存池
 _CACHE_STORE = TTLCache(maxsize=1000, ttl=600)
 
 
 class CacheUtil:
-    _lock = threading.RLock()
+    _lock = threading.Lock()
 
     @staticmethod
     def set(key: str, value: Any):
-        """插入/更新"""
         with CacheUtil._lock:
             _CACHE_STORE[key] = value
 
     @staticmethod
     def get(key: str):
-        """获取 (过期会自动返回 None)"""
         with CacheUtil._lock:
             if key in _CACHE_STORE:
                 return _CACHE_STORE[key]
@@ -29,34 +26,62 @@ class CacheUtil:
 
     @staticmethod
     def delete(key: str):
-        """删除"""
         with CacheUtil._lock:
             if key in _CACHE_STORE:
                 del _CACHE_STORE[key]
 
     @staticmethod
     def clear():
-        """清空所有"""
-        _CACHE_STORE.clear()
+        with CacheUtil._lock:
+            _CACHE_STORE.clear()
 
 
-# 2. 装饰器 (用于自动缓存函数结果)
 def cached(ttl: int = 600):
-    # 如果需要针对不同 ttl 创建不同池，可以在这里动态创建
-    # 简单场景直接复用全局池即可，或者新建临时池
+    """
+    智能缓存装饰器：自动支持 Sync 和 Async 函数
+    """
+
     def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # 生成唯一Key
-            key = f"{func.__name__}:{str(args)}:{str(kwargs)}"
-            if key in _CACHE_STORE:
-                return _CACHE_STORE[key]
+        # 1. 判断被装饰函数是否是异步函数
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                # 生成 Key
+                key = f"{func.__name__}:{str(args)}:{str(kwargs)}"
 
-            result = await func(*args, **kwargs)
-            _CACHE_STORE[key] = result
-            return result
+                # 读缓存
+                with CacheUtil._lock:
+                    if key in _CACHE_STORE:
+                        return _CACHE_STORE[key]
 
-        return wrapper
+                # 执行原函数 (Await)
+                result = await func(*args, **kwargs)
+
+                # 写缓存
+                with CacheUtil._lock:
+                    _CACHE_STORE[key] = result
+                return result
+
+            return async_wrapper
+
+        else:
+            # 2. 同步函数的 Wrapper (Service 层专用)
+            @wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                key = f"{func.__name__}:{str(args)}:{str(kwargs)}"
+
+                with CacheUtil._lock:
+                    if key in _CACHE_STORE:
+                        return _CACHE_STORE[key]
+
+                # 执行原函数 (直接调用)
+                result = func(*args, **kwargs)
+
+                with CacheUtil._lock:
+                    _CACHE_STORE[key] = result
+                return result
+
+            return sync_wrapper
 
     return decorator
 
