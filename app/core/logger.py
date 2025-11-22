@@ -16,7 +16,7 @@ class InterceptHandler(logging.Handler):
         # 2. 【关键修改】动态计算堆栈深度
         # 这一段代码会不断往上找调用方，直到跳出 logging 库的文件范围
         frame, depth = logging.currentframe(), 2
-        while frame.f_code.co_filename == logging.__file__:
+        while frame and frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back
             depth += 1
 

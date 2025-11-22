@@ -36,7 +36,7 @@ def start_scheduler():
     # 假设 .env 里配置了 ENVIRONMENT=dev
     # 你可以加一个配置项 ENABLE_SCHEDULER 来强行控制
     if settings.ENVIRONMENT == "dev":
-        logger.info(f"🚧 开发环境 (DEBUG=True)，且未开启强制调度，定时任务已跳过")
+        logger.info(f"🚧 开发环境 (ENVIRONMENT=dev)，且未开启强制调度，定时任务已跳过")
         return
 
     try:

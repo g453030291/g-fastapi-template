@@ -27,10 +27,10 @@ def create_app() -> FastAPI:
     )
 
     # 1. 【必加】配置 CORS (解决跨域问题)
-    origins = settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else ["*"]
+    # CORS_ORIGINS is already a list after being parsed by config validator
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
