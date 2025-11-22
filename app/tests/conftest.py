@@ -5,9 +5,7 @@ from app.core.database import SessionLocal
 
 @pytest.fixture(scope="function")
 def session():
-    """
-    创建一个直连本地库的 session，供测试函数使用
-    """
+    """Database session for tests"""
     _session = SessionLocal()
     try:
         yield _session
@@ -16,8 +14,6 @@ def session():
 
 @pytest.fixture(scope="function")
 def client():
-    """
-    提供一个可以直接发请求的 client
-    """
+    """Test client for API requests"""
     with TestClient(app) as c:
         yield c
