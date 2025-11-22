@@ -26,8 +26,6 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
 
-    # 1. 【必加】配置 CORS (解决跨域问题)
-    # CORS_ORIGINS is already a list after being parsed by config validator
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
@@ -36,7 +34,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # 2. 【推荐】请求耗时处理中间件
     @app.middleware("http")
     async def add_process_time_header(request: Request, call_next):
         start_time = time.time()
