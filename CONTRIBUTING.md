@@ -125,7 +125,7 @@ logger.error(f"Error occurred: {e}")
 ### 4.3 Database Management
 
 - **No Migrations**: Do not generate Alembic migration files.
-- **Schema Management**: Database tables are managed manually or via `scripts/init_db.py` (using `SQLModel.metadata.create_all`).
+- **Schema Management**: Database tables should be managed manually (e.g., using `SQLModel.metadata.create_all()` in your initialization code).
 
 ### 4.4 Type Hinting
 
