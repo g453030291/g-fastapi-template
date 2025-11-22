@@ -1,3 +1,6 @@
+from typing import List, Any
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,7 +10,14 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     # mysql
     MYSQL_URL: str = "mysql+pymysql://root:123456789@localhost:3306/test_db?charset=utf8mb4"
-    CORS_ORIGINS: str = "*"
+    CORS_ORIGINS: List[str] = ["*"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: Any) -> Any:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        return v
 
     # openai
     OPENAI_API_KEY: str = ""

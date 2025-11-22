@@ -1,4 +1,7 @@
+import threading
 from functools import wraps
+from typing import Any
+
 from cachetools import TTLCache
 
 # 1. 全局缓存池 (底层就是一个增强版 Dict)
@@ -8,26 +11,28 @@ _CACHE_STORE = TTLCache(maxsize=1000, ttl=600)
 
 
 class CacheUtil:
-    """手动管理缓存工具类"""
+    _lock = threading.RLock()
 
     @staticmethod
-    def set(key: str, value: any):
+    def set(key: str, value: Any):
         """插入/更新"""
-        _CACHE_STORE[key] = value
+        with CacheUtil._lock:
+            _CACHE_STORE[key] = value
 
     @staticmethod
     def get(key: str):
         """获取 (过期会自动返回 None)"""
-        # 这里也可以用 _CACHE_STORE.get(key)
-        if key in _CACHE_STORE:
-            return _CACHE_STORE[key]
-        return None
+        with CacheUtil._lock:
+            if key in _CACHE_STORE:
+                return _CACHE_STORE[key]
+            return None
 
     @staticmethod
     def delete(key: str):
         """删除"""
-        if key in _CACHE_STORE:
-            del _CACHE_STORE[key]
+        with CacheUtil._lock:
+            if key in _CACHE_STORE:
+                del _CACHE_STORE[key]
 
     @staticmethod
     def clear():

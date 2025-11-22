@@ -39,6 +39,8 @@ def init_logger():
         backtrace=False,
         diagnose=False
     )
+    # 日志文件配置
+    # logger.add("logs/app_{time:YYYY-MM-DD}.log", rotation="00:00", retention="7 days", level="INFO")
 
     # 3. 【关键一步】接管 Root Logger (防止重复打印)
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
