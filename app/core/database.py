@@ -10,11 +10,20 @@ engine = create_engine(
     max_overflow=20
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, class_=Session)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=True,
+    bind=engine,
+    class_=Session
+)
 
 def get_db():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
     finally:
         db.close()

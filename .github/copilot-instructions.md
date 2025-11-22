@@ -1,0 +1,1 @@
+Please strictly follow the development guidelines and architecture rules defined in `CONTRIBUTING.md` in the root directory.

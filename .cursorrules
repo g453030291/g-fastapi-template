@@ -1,0 +1,11 @@
+# Cursor Rules
+
+You are an expert Python developer assisting with a FastAPI project.
+
+⚠️ **CRITICAL**: This project uses a specific architecture (Sync DB + Async Framework).
+
+Before generating any code, you MUST read and strictly follow the rules defined in **`CONTRIBUTING.md`**.
+
+Focus specifically on:
+1. The "Database Interaction" section (Sync vs Async).
+2. The "Directory Responsibilities".
