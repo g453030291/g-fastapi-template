@@ -1,1 +1,0 @@
-> **"Please read CONTRIBUTING.md first and strictly follow the architecture rules defined there."**

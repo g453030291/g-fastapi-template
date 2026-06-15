@@ -1,33 +1,28 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from loguru import logger
 from app.core.config import settings
 
-_scheduler: BackgroundScheduler | None = None
+_scheduler: AsyncIOScheduler | None = None
 
 
-def get_scheduler() -> BackgroundScheduler:
-    """Get or create scheduler instance"""
+def get_scheduler() -> AsyncIOScheduler:
     global _scheduler
     if _scheduler is None:
-        _scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+        _scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
     return _scheduler
 
 
-def _setup_jobs(scheduler: BackgroundScheduler):
-    """Configure scheduled jobs"""
+def _setup_jobs(scheduler: AsyncIOScheduler):
     pass
 
 
 def start_scheduler():
-    """Start scheduler"""
     scheduler = get_scheduler()
 
     if scheduler.running:
         logger.warning("Scheduler is already running, skipping start")
         return
 
-    # Skip in dev environment to avoid unintended task execution
     if settings.ENVIRONMENT == "dev":
         logger.info("Development environment detected, scheduler skipped")
         return
@@ -46,10 +41,10 @@ def start_scheduler():
 
     except Exception as e:
         logger.error(f"Scheduler start failed: {e}")
-        raise e
+        raise
+
 
 def stop_scheduler():
-    """Stop scheduler"""
     global _scheduler
     if _scheduler and _scheduler.running:
         try:

@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 class Settings(BaseSettings):
     ENVIRONMENT: str = "dev"
     APP_NAME: str = "fastapi template project"
-    MYSQL_URL: str = "mysql+pymysql://root:123456789@localhost:3306/test_db?charset=utf8mb4"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:123456789@localhost:5432/test_db"
     CORS_ORIGINS: List[str] = ["*"]
 
     @field_validator("CORS_ORIGINS", mode="before")
@@ -19,9 +19,10 @@ class Settings(BaseSettings):
             return [i.strip() for i in v.split(",")]
         return v
 
-    OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    LLM_PROVIDER: str = "openai"  # "openai" or "anthropic"
+    LLM_API_KEY: str = ""
+    LLM_BASE_URL: str = ""
+    LLM_MODEL: str = "gpt-4o-mini"
 
     model_config = SettingsConfigDict(
         env_file=PROJECT_ROOT / ".env",

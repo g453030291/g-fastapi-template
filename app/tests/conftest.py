@@ -1,19 +1,26 @@
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
-from app.main import app
-from app.core.database import SessionLocal
+from httpx import AsyncClient, ASGITransport
 
-@pytest.fixture(scope="function")
-def session():
-    """Database session for tests"""
-    _session = SessionLocal()
-    try:
-        yield _session
-    finally:
-        _session.close()
+from app.main import app
+from app.core.database import AsyncSessionLocal
+
 
 @pytest.fixture(scope="function")
 def client():
-    """Test client for API requests"""
     with TestClient(app) as c:
         yield c
+
+
+@pytest_asyncio.fixture(scope="function")
+async def async_client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+
+
+@pytest_asyncio.fixture(scope="function")
+async def session():
+    async with AsyncSessionLocal() as s:
+        yield s
+        await s.rollback()

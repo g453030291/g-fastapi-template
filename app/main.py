@@ -1,4 +1,5 @@
 import time
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -6,10 +7,12 @@ from loguru import logger
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.api_router import api_router
+from app.client.http_client import http_client
 from app.core.config import settings
 from app.core.exceptions import register_exceptions
 from app.core.logger import init_logger
 from app.core import scheduler
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +22,8 @@ async def lifespan(app: FastAPI):
     yield
     logger.info(f"{settings.APP_NAME} is shutting down...")
     scheduler.stop_scheduler()
+    await http_client.aclose()
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
@@ -33,6 +38,14 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def add_request_id(request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        with logger.contextualize(request_id=request_id):
+            response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
 
     @app.middleware("http")
     async def add_process_time_header(request: Request, call_next):
@@ -50,6 +63,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     return app
+
 
 app = create_app()
 
